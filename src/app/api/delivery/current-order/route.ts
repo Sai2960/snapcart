@@ -1,0 +1,37 @@
+import { auth } from "@/auth";
+import connectDb from "@/lib/db";
+import DeliveryAssignment from "@/models/deliveryAssignment.model";
+import "@/models/order.model"; // ← change to side-effect import (no variable name)
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    await connectDb();
+    const session = await auth();
+    const deliveryBoyId = session?.user?.id;
+
+    if (!deliveryBoyId) {
+      return NextResponse.json({ message: "unauthorized" }, { status: 401 });
+    }
+
+    const activeAssignment = await DeliveryAssignment.findOne({
+      assignedTo: deliveryBoyId,
+      status: "assigned",
+    }).populate("order");
+
+    if (!activeAssignment) {
+      return NextResponse.json({ active: false }, { status: 200 });
+    }
+
+    return NextResponse.json(
+      { active: true, assignment: activeAssignment },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("current order error:", error);
+    return NextResponse.json(
+      { message: `current order error ${error}` },
+      { status: 500 },
+    );
+  }
+}
