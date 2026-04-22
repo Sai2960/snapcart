@@ -8,11 +8,11 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 interface IOrder {
-  _id?: string
-  user: string
+  _id?: string;
+  user: string;
   items: [
     {
-      grocery: string
+      grocery: string;
       name: string;
       price: string;
       unit: string;
@@ -34,7 +34,7 @@ interface IOrder {
     longitude: number;
   };
 
-  assignment?: string
+  assignment?: string;
   assignedDeliveryBoy?: IUser;
   status: "pending" | "out of delivery" | "delivered";
   createdAt?: Date;
@@ -61,27 +61,36 @@ function ManageOrders() {
     const socket = getSocket();
     if (!socket) return;
 
-    if (!socket.connected) {
-      socket.connect();
-    }
+    // ✅ Connect first, then set up listeners inside connect event
+    const setupListeners = () => {
+      console.log("Admin socket connected:", socket.id);
+
+      socket.on("new-order", handleNewOrder);
+
+      socket.on("order-assigned", ({ orderId, assignedDeliveryBoy }) => {
+        setOrders((prev) =>
+          prev?.map((o) =>
+            o._id == orderId ? { ...o, assignedDeliveryBoy } : o,
+          ),
+        );
+      });
+    };
 
     const handleNewOrder = (newOrder: IOrder) => {
       setOrders((prev) => [newOrder, ...(prev ?? [])]);
     };
 
-    socket.on("new-order", handleNewOrder);
-
-    socket.on("order-assigned", ({ orderId, assignedDeliveryBoy }) => {
-      setOrders((prev) =>
-        prev?.map((o) =>
-          o._id == orderId ? { ...o, assignedDeliveryBoy } : o,
-        ),
-      );
-    });
+    if (socket.connected) {
+      setupListeners();
+    } else {
+      socket.connect();
+      socket.on("connect", setupListeners);
+    }
 
     return () => {
       socket.off("new-order", handleNewOrder);
       socket.off("order-assigned");
+      socket.off("connect", setupListeners);
     };
   }, []);
 

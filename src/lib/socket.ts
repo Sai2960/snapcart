@@ -9,8 +9,9 @@ export const getSocket = () => {
       transports: ["websocket"],
       secure: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity, // ✅ keep trying forever
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,    // ✅ max 5s between attempts
     });
   }
   return socket;
