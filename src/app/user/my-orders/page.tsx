@@ -6,20 +6,21 @@ import axios from "axios";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
-
+import { useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 
 function MyOrder() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [orders, setOrders] = useState<IOrder[]>();
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const getMyOrders = async () => {
       try {
         const result = await axios.get("/api/user/my-orders");
         setOrders(result.data);
         setLoading(false);
-        console.log(result);
       } catch (error) {
         console.log(error);
       }
@@ -28,7 +29,30 @@ function MyOrder() {
   }, []);
 
   useEffect(() => {
+    if (!(session?.user as any)?.id) return;
+
     const socket = getSocket();
+    if (!socket.connected) socket.connect();
+
+    if (socket.connected) {
+      socket.emit("join-user-room", (session!.user as any).id);
+    }
+
+    socket.on("connect", () => {
+      socket.emit("join-user-room", (session!.user as any).id);
+    });
+
+    socket.on(
+      "order-status-update",
+      ({ orderId, status, assignedDeliveryBoy }) => {
+        setOrders((prev) =>
+          prev?.map((o) =>
+            o._id == orderId ? { ...o, status, assignedDeliveryBoy } : o,
+          ),
+        );
+      },
+    );
+
     socket.on("order-assigned", ({ orderId, assignedDeliveryBoy }) => {
       setOrders((prev) =>
         prev?.map((o) =>
@@ -38,9 +62,11 @@ function MyOrder() {
     });
 
     return () => {
+      socket.off("connect");
+      socket.off("order-status-update");
       socket.off("order-assigned");
     };
-  }, []);
+  }, [(session?.user as any)?.id]);
 
   if (loading) {
     return (
@@ -49,6 +75,7 @@ function MyOrder() {
       </div>
     );
   }
+
   return (
     <div className="bg-gradient-to-b from-white to-gray-100 min-h-screen w-full">
       <div className="max-w-3xl mx-auto px-4 pt-16 pb-10 relative">
@@ -91,4 +118,5 @@ function MyOrder() {
     </div>
   );
 }
+
 export default MyOrder;

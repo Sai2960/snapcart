@@ -25,7 +25,6 @@ export async function POST(
     let deliveryBoysPayload: any = [];
 
     if (status === "out of delivery") {
-      // ✅ Check if there's already an active broadcasted/assigned assignment
       const existingAssignment = await DeliveryAssignment.findOne({
         order: order._id,
         status: { $in: ["brodcasted", "assigned"] },
@@ -34,7 +33,6 @@ export async function POST(
       if (!existingAssignment) {
         const { latitude, longitude } = order.address;
 
-        // ✅ BROADCAST DEBUG LOGS
         console.log("=== BROADCAST DEBUG ===");
         console.log("order coords:", longitude, latitude);
         const allDeliveryBoys = await User.find({ role: "deliveryBoy" });
@@ -62,18 +60,15 @@ export async function POST(
 
         console.log("nearby found:", nearByDeliveryBoys.length);
 
-        // Fallback: if no nearby boys found, use all delivery boys
         if (nearByDeliveryBoys.length === 0) {
-          console.log(
-            "No nearby delivery boys — falling back to all delivery boys",
-          );
+          console.log("No nearby delivery boys — falling back to all delivery boys");
           nearByDeliveryBoys = await User.find({ role: "deliveryBoy" });
         }
 
         const nearByIds = nearByDeliveryBoys.map((b) => b._id);
         const busyIds = await DeliveryAssignment.find({
           assignedTo: { $in: nearByIds },
-          status: "assigned", // ← only "assigned" means truly busy
+          status: "assigned",
         }).distinct("assignedTo");
         const busyIdSet = new Set(busyIds.map((b) => String(b)));
         const availableDeliveryBoys = nearByDeliveryBoys.filter(
@@ -83,10 +78,13 @@ export async function POST(
 
         if (candidates.length === 0) {
           await order.save();
-          await emitEventHandler("order-status-update", {
-            orderId: order._id,
-            status: order.status,
-          });
+          // ✅ emit to user's room
+          await emitEventHandler(
+            "order-status-update",
+            { orderId: order._id, status: order.status, assignedDeliveryBoy: order.assignedDeliveryBoy },
+            null,
+            `user_${order.user._id ?? order.user}`,
+          );
           return NextResponse.json(
             { message: "there is no available Delivery boys" },
             { status: 200 },
@@ -122,10 +120,14 @@ export async function POST(
         await deliveryAssignment.populate("order");
         await order.save();
         await order.populate("user");
-        await emitEventHandler("order-status-update", {
-          orderId: order._id,
-          status: order.status,
-        });
+
+        // ✅ emit to user's room
+        await emitEventHandler(
+          "order-status-update",
+          { orderId: order._id, status: order.status, assignedDeliveryBoy: order.assignedDeliveryBoy },
+          null,
+          `user_${order.user._id ?? order.user}`,
+        );
 
         return NextResponse.json(
           {
@@ -135,12 +137,14 @@ export async function POST(
           { status: 200 },
         );
       } else {
-        // ✅ Assignment already exists — just save status and emit
         await order.save();
-        await emitEventHandler("order-status-update", {
-          orderId: order._id,
-          status: order.status,
-        });
+        // ✅ emit to user's room
+        await emitEventHandler(
+          "order-status-update",
+          { orderId: order._id, status: order.status, assignedDeliveryBoy: order.assignedDeliveryBoy },
+          null,
+          `user_${order.user._id ?? order.user}`,
+        );
         return NextResponse.json(
           { message: "assignment already exists" },
           { status: 200 },
@@ -149,10 +153,13 @@ export async function POST(
     }
 
     await order.save();
-    await emitEventHandler("order-status-update", {
-      orderId: order._id,
-      status: order.status,
-    });
+    // ✅ emit to user's room
+    await emitEventHandler(
+      "order-status-update",
+      { orderId: order._id, status: order.status, assignedDeliveryBoy: order.assignedDeliveryBoy },
+      null,
+      `user_${order.user._id ?? order.user}`,
+    );
 
     return NextResponse.json(
       { message: "status updated successfully" },
