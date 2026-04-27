@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: "Snapcart | Fresh Groceries, Delivered Fast",
   description:
     "Get fresh groceries delivered to your door in 10 minutes. Quick, easy, and reliable — anytime, anywhere.",
+  icons: {
+    icon: "/snapcart_green.jpg",
+    apple: "/snapcart_green.jpg",
+  },
 };
 
 export default function RootLayout({
@@ -17,16 +21,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className="w-full min-h-screen bg-linear-to-b from-green-50
-    to-white"
-      >
+      <body className="w-full min-h-screen bg-linear-to-b from-green-50 to-white">
         <Provider>
           <StoreProvider>
-            <InitUser/>
+            <InitUser />
             {children}
           </StoreProvider>
-          </Provider>
+        </Provider>
       </body>
     </html>
   );
